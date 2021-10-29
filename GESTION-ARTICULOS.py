@@ -20,17 +20,32 @@ def esEntero(num):
         return True
     except ValueError:
         return False
-        
+    
+def esFloat(num):
+    try:
+        float1 = float(num)
+        num = float1
+        return True 
+    except ValueError:
+        return False
+
         
 #la validación es similar a la del identificador de cliente, en este caso
 #a la funcion le pasamos la tabla y el campo porque la utilizaremos para validar en artículo y familias
 def duplicado(tabla, campo, valor):
     sql="select "+campo+" from "+tabla+" where "+campo+" = "+str(valor)
+    if campo == "nombrefamilia":
+        sql="select "+campo+" from "+tabla+" where "+campo+" = '"+str(valor)+"'"
     encontrado = False
     try:
         micursor.execute(sql)
         for columna in micursor:
-            print("El valor introducido está duplicado. Por favor, introduce uno distinto.")
+            if campo == "idfamilia":#me interesa que haya un mensaje u otro dependiendo de que estamos validando
+                print("El ID introducido existe.")
+            elif campo == "nombrefamilia":
+                print("El nombre de familia está duplicado. Introduce otro.")
+            else:
+                print("El valor introducido está duplicado. Por favor, introduce uno distinto.")
             encontrado = True #si hemos encontrado algún registro
         return encontrado
         
@@ -42,7 +57,64 @@ def duplicado(tabla, campo, valor):
 
 #FUNCIONES DE MENU
 ########################################
-def alta():
+def altaFamilia():
+    sql = ""
+    
+    idfamilianuevo="id"
+    #no aceptamos un ID de familia si NO es entero o ya existe o si pulsa intro
+    while esEntero(idfamilianuevo) == False or duplicado("familia","idfamilia",idfamilianuevo) == True:
+        idfamilianuevo = input("Introduce idfamilia de la familia (número entero, pulsa intro para generar uno automático.) ")
+        if idfamilianuevo == "":# si pulsa intro, permitimos salir del bucle
+            break
+    if idfamilianuevo != "": #si no es id vacío, lo utilizaremos.
+        idfamilianuevo = int(idfamilianuevo)
+    
+    nombre = input("Introduce nombre de la familia (1-100 caracteres) ").lower()
+    while len(nombre)<1 or len (nombre)>100 or duplicado("familia","nombrefamilia",nombre) == True:
+        nombre = input("Introduce nombre de la familia (1-100 caracteres) ").lower()
+    
+    descuento = "descuento"
+    while descuento != "" and esFloat(descuento) == False:
+        try:
+            descuento = input("Introduce el descuento de la familia (entero o decimales, o pulsa intro si no tiene descuento) ")
+        except ValueError:
+            descuento = "descuento"
+    
+    if descuento == "":#solo podemos meter floats en el campo descuento, aunque se permite null también.
+        descuento = "null"
+    else:
+        descuento = float(descuento)
+    
+    if idfamilianuevo == "":#dependiendo de si el usuario quiere meter un id (no duplicado) o que se autogenere.
+        sql = "insert into familia (nombrefamilia, descuentofamilia) values ('{}',{})".format(nombre, descuento)
+    else:
+        sql = "insert into familia (idfamilia, nombrefamilia, descuentofamilia) values ({},'{}',{})".format(idfamilianuevo,nombre,descuento)
+    #cláusula insert
+    try:
+        micursor.execute(sql)
+        miconexion.commit()
+        print("Familia dada de alta con éxito.")
+    except mysql.connector.Error:
+        print("No se ha podido dar de alta la familia.")
+        
+    #vamos a hacer que esta funcion devuelva el ID creado, para utilizarlo en crear articulo si esta función es llamada allí.
+    if idfamilianuevo != "":#si hemos introducido el ID manualmente, lo tenemos guardado en la variable
+        return idfamilianuevo
+    else:
+        try:#si se ha autogenerado, sacamos el ultimo de la lista. auto increment ignora que hayan números sin utilizar,
+            #simpre usará un número mayor al último que encuentre, por lo que este select nos arrojará el ID que buscamos.
+            busqueda = "SELECT idfamilia FROM familia ORDER BY idfamilia DESC LIMIT 1"
+            micursor.execute(busqueda)
+            #miconexion.commit()
+            for columna in micursor:
+                print("El ID de la familia que acabas de crear es "+str(columna[0]))
+                idfamilianuevo = columna[0]
+                return idfamilianuevo
+        except mysql.connector.Error:
+            print("ID no encontrado")
+            return 0
+    
+def altaArticulo():
     
     #pedimos datos y validamos.
     codigo = input("Introduce codigo de artículo (número entero)")
@@ -52,10 +124,24 @@ def alta():
         codigoduplicado = duplicado("articulo", "codigoarticulo",codigo)  
     codigo = int(codigo)
     
-    
-    idfamilia=""
-    while esEntero(idfamilia) == False:
+    #en este caso que un ID este duplicado quiere decir que existe y que lo aceptamos.
+    #si no esta duplicado, no existe y por tanto, damos la opcion de crear familia nueva.
+    idfamilia = ""
+    idfamilianuevo = ""
+    while esEntero(idfamilia) == False and duplicado("familia","idfamilia",idfamilia) == False:
+        #el bucle termina cuando se demuestra que el ID es entero y existe.
         idfamilia = input("Introduce idfamilia de artículo (número entero)")
+        if duplicado("familia","idfamilia",idfamilia) == False: #si el dni no existe
+            opcion = ""
+            while opcion != "si" and opcion != "no":
+                opcion = input("El id de familia que has introducido no existe. ¿Quieres crear una nueva familia? (si/no) ").lower()
+            if opcion == "si":
+                idfamilianuevo = altaFamilia()
+                idfamilia = idfamilianuevo
+                break
+            else:
+                print("Has respondido no. Entonces debes introducir un idfamilia que exista.")
+                idfamilia = ""         
     idfamilia = int(idfamilia)
     
     nombre=""
@@ -115,8 +201,8 @@ def buscar():
     elif op == "2":    
         dni=""
         while len(dni)<1 or len (dni)>9:
-           dni = input("Introduce DNI o CIF del cliente (1-9 caracteres)")
-           condicion = "where identificadorcliente = '"+dni+"'"
+            dni = input("Introduce DNI o CIF del cliente (1-9 caracteres)")
+            condicion = "where identificadorcliente = '"+dni+"'"
            
     #cláusula select y creacion de tabla
     try:
@@ -343,12 +429,13 @@ def menuArticulo():
     print("MENÚ DE GESTIÓN DE ARTÍCULOS DE FERRETERÍA")
     while not salir:
      
-        print ("1. Alta")
+        print ("1. Alta artículo")
         print ("2. Baja")
         print ("3. Buscar - Modificar")
         print ("4. Mostrar todos los articulos")
         print ("5. Listar clientes")
-        print ("6. Salir")
+        print ("6. Alta familia")
+        print ("7. Salir")
         print ("Elige una opción")
         
         #validacion para que solo se metan numeros enteros
@@ -363,7 +450,7 @@ def menuArticulo():
         
         
         if opcion == 1:
-            alta()
+            altaArticulo()
         elif opcion == 2:
             print("Para dar de baja a un cliente, introduce nombre y apellido o identificador del cliente")
             baja()
@@ -375,6 +462,8 @@ def menuArticulo():
         elif opcion == 5:
             listar()
         elif opcion == 6:
+            altaFamilia()
+        elif opcion == 7:
             salir = True
         else:
             print ("Introduce un numero entre 1 y 6")  
