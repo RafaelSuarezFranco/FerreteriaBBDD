@@ -20,16 +20,6 @@ def esEntero(num):
         return True
     except ValueError:
         return False
-
-#validar un código de artículo o nombre de familiaduplicado
-def duplicado(tabla, campo, valor):
-    sql="select "+campo+" from "+tabla+" where "+campo+" = "+str(valor)
-    try:   
-        micursor.execute(sql)
-        miconexion.commit()
-        print("Cliente dado de baja con éxito.")
-    except mysql.connector.Error:
-        print("No se ha borrado el cliente.")
         
         
 #la validación es similar a la del identificador de cliente, en este caso
