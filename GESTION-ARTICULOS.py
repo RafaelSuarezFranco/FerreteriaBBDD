@@ -30,6 +30,22 @@ def duplicado(tabla, campo, valor):
         print("Cliente dado de baja con éxito.")
     except mysql.connector.Error:
         print("No se ha borrado el cliente.")
+        
+        
+#la validación es similar a la del identificador de cliente, en este caso
+#a la funcion le pasamos la tabla y el campo porque la utilizaremos para validar en artículo y familias
+def duplicado(tabla, campo, valor):
+    sql="select "+campo+" from "+tabla+" where "+campo+" = "+str(valor)
+    encontrado = False
+    try:
+        micursor.execute(sql)
+        for columna in micursor:
+            print("El valor introducido está duplicado. Por favor, introduce uno distinto.")
+            encontrado = True #si hemos encontrado algún registro
+        return encontrado
+        
+    except mysql.connector.Error:
+        return False
 ########################################
 
 
@@ -38,12 +54,14 @@ def duplicado(tabla, campo, valor):
 ########################################
 def alta():
     
-    #pedimos datos y validamos
-    codigo=""
-    while esEntero(codigo) == False:
+    #pedimos datos y validamos.
+    codigo = input("Introduce codigo de artículo (número entero)")
+    codigoduplicado = duplicado("articulo", "codigoarticulo",codigo)
+    while codigoduplicado == True or esEntero(codigo) == False:
         codigo = input("Introduce codigo de artículo (número entero)")
+        codigoduplicado = duplicado("articulo", "codigoarticulo",codigo)  
     codigo = int(codigo)
-
+    
     
     idfamilia=""
     while esEntero(idfamilia) == False:
@@ -253,10 +271,10 @@ def confirmar(borrarModificar):
     else:
         return ""
 
-#me gusta tener una opcion que muestre todos los registros para ver rápidamente los cambios efectuados
+
 def todos():
-    tabla=PrettyTable(["ID","NOMBRE","DIRECCION","IDENTIFICADOR (CIF/DNI)","TIPO CLIENTE","CORREO ELECTRONICO","TELÉFONO"])
-    sql="select * from cliente"
+    tabla=PrettyTable(["ID","CODIGO","ID FAMILIA","NOMBRE","PRECIO"])
+    sql="select * from articulo"
     micursor.execute(sql)
     for columna in micursor:
         tabla.add_row(columna)
@@ -338,7 +356,7 @@ def menuArticulo():
         print ("1. Alta")
         print ("2. Baja")
         print ("3. Buscar - Modificar")
-        print ("4. Mostrar todos los clientes")
+        print ("4. Mostrar todos los articulos")
         print ("5. Listar clientes")
         print ("6. Salir")
         print ("Elige una opción")
