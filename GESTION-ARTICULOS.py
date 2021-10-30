@@ -8,7 +8,7 @@ miconexion = mysql.connector.connect(
   database="ferreteria"
 )
 micursor=miconexion.cursor()
-# este array lo utilizaré para almacenar los ID de cada búsqueda, para luego utilizar esos ID en la modificación o borrado de registros
+
 bufferid = []
 
 #FUNCIONES VALIDACIÓN
@@ -58,8 +58,8 @@ def duplicado(tabla, campo, valor):
 #FUNCIONES DE MENU
 ########################################
 def altaFamilia():
+    ######################################################################################### ID FAMILIA
     sql = ""
-    
     idfamilianuevo="id"
     #no aceptamos un ID de familia si NO es entero o ya existe o si pulsa intro
     while esEntero(idfamilianuevo) == False or duplicado("familia","idfamilia",idfamilianuevo) == True:
@@ -69,6 +69,7 @@ def altaFamilia():
     if idfamilianuevo != "": #si no es id vacío, lo utilizaremos.
         idfamilianuevo = int(idfamilianuevo)
     
+    ######################################################################################### NOMBRE Y DESCUENTO
     nombre = input("Introduce nombre de la familia (1-100 caracteres) ").lower()
     while len(nombre)<1 or len (nombre)>100 or duplicado("familia","nombrefamilia",nombre) == True:
         nombre = input("Introduce nombre de la familia (1-100 caracteres) ").lower()
@@ -84,7 +85,7 @@ def altaFamilia():
         descuento = "null"
     else:
         descuento = float(descuento)
-    
+    ######################################################################################### SQL E INSERT DE LA FAMILIA
     if idfamilianuevo == "":#dependiendo de si el usuario quiere meter un id (no duplicado) o que se autogenere.
         sql = "insert into familia (nombrefamilia, descuentofamilia) values ('{}',{})".format(nombre, descuento)
     else:
@@ -97,12 +98,14 @@ def altaFamilia():
     except mysql.connector.Error:
         print("No se ha podido dar de alta la familia.")
         
+    ######################################################################### RECUPERAR EL ID FAMILIA (PARA EL ALTA DE ARTICULO)
+        
     #vamos a hacer que esta funcion devuelva el ID creado, para utilizarlo en crear articulo si esta función es llamada allí.
     if idfamilianuevo != "":#si hemos introducido el ID manualmente, lo tenemos guardado en la variable
         return idfamilianuevo
     else:
         try:#si se ha autogenerado, sacamos el ultimo de la lista. auto increment ignora que hayan números sin utilizar,
-            #simpre usará un número mayor al último que encuentre, por lo que este select nos arrojará el ID que buscamos.
+            #siempre usará un número mayor al último que encuentre, por lo que este select nos arrojará el ID que buscamos.
             busqueda = "SELECT idfamilia FROM familia ORDER BY idfamilia DESC LIMIT 1"
             micursor.execute(busqueda)
             #miconexion.commit()
@@ -113,50 +116,69 @@ def altaFamilia():
         except mysql.connector.Error:
             print("ID no encontrado")
             return 0
-    
+
+
+def buscarFamiliaID(idfamilia):
+    tabla=PrettyTable(["ID FAMILIA","NOMBRE FAMILIA","DESCUENTO FAMILIA"])
+    sql="select * from familia where idfamilia = "+idfamilia
+    micursor.execute(sql)
+    for columna in micursor:
+        tabla.add_row(columna)
+    print(tabla)    
+
+
 def altaArticulo():
-    
     #pedimos datos y validamos.
+    ######################################################################################### CODIGO
     codigo = input("Introduce codigo de artículo (número entero)")
     codigoduplicado = duplicado("articulo", "codigoarticulo",codigo)
     while codigoduplicado == True or esEntero(codigo) == False:
         codigo = input("Introduce codigo de artículo (número entero)")
         codigoduplicado = duplicado("articulo", "codigoarticulo",codigo)  
     codigo = int(codigo)
-    
-    #en este caso que un ID este duplicado quiere decir que existe y que lo aceptamos.
+    ######################################################################################### FAMILIA
+    #en el caso que un ID de familia esté duplicado quiere decir que existe y que lo aceptamos.
     #si no esta duplicado, no existe y por tanto, damos la opcion de crear familia nueva.
     idfamilia = ""
     idfamilianuevo = ""
     while esEntero(idfamilia) == False and duplicado("familia","idfamilia",idfamilia) == False:
-        #el bucle termina cuando se demuestra que el ID es entero y existe.
+        #el bucle termina cuando se demuestra que el ID es entero y existe (o si creamos una familia nueva)
         idfamilia = input("Introduce idfamilia de artículo (número entero)")
-        if duplicado("familia","idfamilia",idfamilia) == False: #si el dni no existe
+        if duplicado("familia","idfamilia",idfamilia) == False: #si el ID no existe
             opcion = ""
             while opcion != "si" and opcion != "no":
                 opcion = input("El id de familia que has introducido no existe. ¿Quieres crear una nueva familia? (si/no) ").lower()
-            if opcion == "si":
-                idfamilianuevo = altaFamilia()
-                idfamilia = idfamilianuevo
+            if opcion == "si": 
+                idfamilia = altaFamilia()
+                print("Al artículo que estás creando se le ha asignado la nueva familia.")
                 break
             else:
                 print("Has respondido no. Entonces debes introducir un idfamilia que exista.")
-                idfamilia = ""         
+                idfamilia = ""
+        else: #si el ID existe, mostramos su info y pedimos confirmación
+            print("La familia que has introducido es la siguiente.")
+            buscarFamiliaID(idfamilia)
+            correcto = ""
+            while correcto != "si" and correcto != "no":
+                correcto = input("¿Es esa la familia a la que quieres asignar el artículo?(si/no)").lower()
+            if correcto == "no": #si no es esa la familia, iteramos el bucle
+                idfamilia = ""
+                
     idfamilia = int(idfamilia)
-    
+    ######################################################################################### NOMBRE Y PRECIO
     nombre=""
     while len(nombre)<1 or len (nombre)>100:
         nombre = input("Introduce nombre de artículo (1-100 caracteres)").lower()
-    
+
     precio = ""
-    while precio == "":
+    while precio == "" and esFloat(precio) == False:
         try:
             precio = eval(input("Introduce precio de artículo (número entero o con decimales)"))
-        except ValueError:
+            
+        except Exception:
             precio = ""
-    #precio = eval(precio)
     
-    #cláusula insert
+    ######################################################################################### INSERT ARTICULO
     try:
         sql="insert into articulo(codigoarticulo,idfamilia,nombrearticulo,preciounidad) values({},{},'{}',{})".format(codigo,idfamilia,nombre,precio)
         micursor.execute(sql)
@@ -165,28 +187,47 @@ def altaArticulo():
     except mysql.connector.Error:
         print("No se ha podido dar de alta el artículo.")
     
+    ######################################################################################### INSERT STOCK
+    #cláusula insert del stock. el codigo de artículo es único también, así que lo usaremos para rescatar el ID de artículo
+    idarticulo="select idarticulo from articulo where codigoarticulo = "+str(codigo)
+    micursor.execute(idarticulo)
+    for columna in micursor:
+        idarticulo = columna[0]
+        
+    try:
+        stock="insert into stock(idarticulo,cantidadstock) values({},{})".format(idarticulo,0)
+        micursor.execute(stock)
+        miconexion.commit()
+        print("Stock de artículo dado de alta. Stock inicial = 0")
+    except mysql.connector.Error:
+        print("No se ha podido dar de alta el stock del artículo.")
+    ###################################################################### FIN ALTA ARTÍCULO 
    
-def baja():
+def bajaArticulo(): #las tablas stock e historico stock tienen RESTRICT en sus cláusulas de delete, por lo que si no vamos a
+    #cambiar la base de datos, la única opcion es borrar los registros de esas tablas previamente.
+    
     borrarid = confirmar("eliminar")
     #este es el ID  a borrar, que se extrae de la funcion confirmar() que a su vez extrae un ID  o varios
     # de la función buscar. El parámetro sirve para describir lo que queremos confirmar dentro de la función
     
     sql = ""
-    
     #si no se ha confirmado ningún ID, borrarid valdrá "", por lo que no se ejecutará la cláusula delete
     if borrarid != "":
-        sql="delete from cliente where idcliente = "+str(borrarid)
-        #cláusula delete
+        sqlarticulo="delete from articulo where idarticulo = "+str(borrarid)
+        sqlstock = "delete from stock where idarticulo= "+str(borrarid)
+        sqlhistorico = "delete from historicostock where idarticulo= "+str(borrarid)
+        #cláusulas delete
         try:
-        
-            micursor.execute(sql)
+            micursor.execute(sqlstock)
+            micursor.execute(sqlhistorico)
+            micursor.execute(sqlarticulo)
             miconexion.commit()
-            print("Cliente dado de baja con éxito.")
+            print("Artículo dado de baja con éxito. Su stock e histórico de stock tambíen se han dado de baja.")
         except mysql.connector.Error:
-            print("No se ha borrado el cliente.")
+            print("No se ha borrado el artículo.")
 
 def buscar():
-    print("Elige buscar por nombre y apellido (opción 1) o por identifidor del cliente (opción 2)")
+    print("Elige buscar por nombre de artículo (opción 1) o por codigo de artículo (opción 2)")
     op = ""
     condicion = ""
      
@@ -196,34 +237,35 @@ def buscar():
     if op == "1":
         nombre=""
         while len(nombre)<1 or len (nombre)>100:
-            nombre = input("Introduce nombre y apellido del cliente (1-100 caracteres)")
-            condicion = "where nombrecliente = '"+nombre+"'" #la consulta varía dependiendo de la opcion (nombre o DNI)
+            nombre = input("Introduce nombre de artículo del cliente (1-100 caracteres)")
+            condicion = "where nombrearticulo = '"+nombre+"'" #la consulta varía dependiendo de la opcion (nombre o codigo)
     elif op == "2":    
-        dni=""
-        while len(dni)<1 or len (dni)>9:
-            dni = input("Introduce DNI o CIF del cliente (1-9 caracteres)")
-            condicion = "where identificadorcliente = '"+dni+"'"
+        codigo = input("Introduce codigo de artículo (número entero)")
+        while esEntero(codigo) == False:
+            codigo = input("Introduce codigo de artículo (número entero)") 
+        codigo = int(codigo)
+        condicion = "where codigoarticulo = "+str(codigo)
            
-    #cláusula select y creacion de tabla
+    #cláusula select y creacion de tabla    
     try:
-        tabla=PrettyTable(["ID","NOMBRE","DIRECCION","IDENTIFICADOR (CIF/DNI)","TIPO CLIENTE","CORREO ELECTRONICO","TELÉFONO"])
-        sql="select * from cliente "+condicion
+        tabla=PrettyTable(["ID","CODIGO","ID FAMILIA","NOMBRE","PRECIO"])
+        sql="select * from articulo "+condicion
         micursor.execute(sql)
-        #miconexion.commit()
         bufferid = []
         for columna in micursor:
             tabla.add_row(columna)
             bufferid.append(columna[0]) #almacenamos los id provisionalmente
-        if len(bufferid) > 0: #si se encuentra uno o varios clientes, entonces mostramos la tabla
-            #muestra los clientes
-            print("Estos son los clientes que coninciden con su búsqueda")
+        if len(bufferid) > 0: #si se encuentra uno o varios articulos, entonces mostramos la tabla
+            #muestra los articulos
+            print("Estos son los articulos que coninciden con su búsqueda")
             print(tabla)
         elif len(bufferid) == 0: #si no se ha encontrado ningún cliente, mostramos solamente este mensaje
-            print("No se ha encontrado ningún cliente que coincida con los términos de búsqueda")
+            print("No se ha encontrado ningún articulo que coincida con los términos de búsqueda")
             
         return bufferid #lo devolvemos dado que queremos usar la funcion de buscar en baja y modificar
     except mysql.connector.Error:
-        print("No se puede encontrar cliente")
+        print("No se puede encontrar articulo")
+
 
 def modificar():
     modificarid = confirmar("modificar")
@@ -318,21 +360,21 @@ def modificar():
             # esta excepción saltará normalmente si no se ha metido ningún dato para modificar.
 
 def confirmar(borrarModificar):
-    #tanto en modificar como en baja, queremos pedir al usuario que confirme si quiere borrar/modificar el cliente
-    #además, si hay varios clientes que coinciden con el criterio de búsqueda, esta función permite seleccionar uno.
+    #tanto en modificar como en baja, queremos pedir al usuario que confirme si quiere borrar/modificar el articulo
+    #además, si hay varios articulos que coinciden con el criterio de búsqueda, esta función permite seleccionar uno.
     bufferid = buscar()
     borrarmodid = "" #este es el ID que se borrará o modificará
     confirmacion = ""
     
-    if len(bufferid) == 1:#en el caso de que solo se haya encontrado un cliente
+    if len(bufferid) == 1:#en el caso de que solo se haya encontrado un articulo
         while confirmacion != "no" and confirmacion != "si":
-            confirmacion = input("¿Está seguro de que quiere "+borrarModificar+" el cliente? (si/no)").lower()
+            confirmacion = input("¿Está seguro de que quiere "+borrarModificar+" el articulo? (si/no)").lower()
             borrarmodid = bufferid[0] #sabemos que si solo hay uno, borramos el único ID del array, en la posicion 0
             
     elif len(bufferid) > 1:#en caso de que encontremos más de uno
         idseleccion = ""
         try:
-            idseleccion = int(input("Se han encontrado varios clientes, escoge el ID (1º columna) de aquel que quieras "+borrarModificar+".\n"+
+            idseleccion = int(input("Se han encontrado varios articulos, escoge el ID (1º columna) de aquel que quieras "+borrarModificar+".\n"+
                                     "Si no quieres "+borrarModificar+" ninguno, pulsa intro o introduce cualquier cosa que no sea un ID: "))
         except ValueError:
             idseleccion = ""
@@ -349,8 +391,10 @@ def confirmar(borrarModificar):
 
 
 def todos():
-    tabla=PrettyTable(["ID","CODIGO","ID FAMILIA","NOMBRE","PRECIO"])
-    sql="select * from articulo"
+    tabla=PrettyTable(["ID","CODIGO","ID FAMILIA","NOMBRE","PRECIO","NOMBRE FAMILIA", "STOCK ACTUAL"])
+    sql="""SELECT a.idarticulo, a.codigoarticulo, a.idfamilia, a.nombrearticulo, a.preciounidad,
+    f.nombrefamilia, s.cantidadstock from articulo a, stock s, familia f
+    WHERE s.idarticulo=a.idarticulo AND a.idfamilia = f.idfamilia"""
     micursor.execute(sql)
     for columna in micursor:
         tabla.add_row(columna)
@@ -428,12 +472,12 @@ def menuArticulo():
     opcion = 0
     print("MENÚ DE GESTIÓN DE ARTÍCULOS DE FERRETERÍA")
     while not salir:
-     
+        print ("")
         print ("1. Alta artículo")
-        print ("2. Baja")
-        print ("3. Buscar - Modificar")
-        print ("4. Mostrar todos los articulos")
-        print ("5. Listar clientes")
+        print ("2. Baja artículo")
+        print ("3. Buscar - Modificar artículo")
+        print ("4. Mostrar todos los artículos")
+        print ("5.")
         print ("6. Alta familia")
         print ("7. Salir")
         print ("Elige una opción")
@@ -452,10 +496,10 @@ def menuArticulo():
         if opcion == 1:
             altaArticulo()
         elif opcion == 2:
-            print("Para dar de baja a un cliente, introduce nombre y apellido o identificador del cliente")
-            baja()
+            print("Para dar de baja a un artículo, introduce nombre o el código de artículo")
+            bajaArticulo()
         elif opcion == 3:
-            print("Para buscar y modificar un cliente, introduce nombre y apellido o identificador del cliente")
+            print("Para buscar y modificar un artículo, introduce nombre o el código de artículo")
             modificar()
         elif opcion == 4:
             todos()
