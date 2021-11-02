@@ -315,12 +315,12 @@ def modificar():
         # para el tema de la familia prefiero preguntar si quiere o no, tal como tengo la función asignarFamilia() no
         # me conviene pedir el dato aqui
         idfamilia = ""
-        modfamilia = input("¿Quieres modificar la familia?(si/no)").lower()
+        modfamilia = ""
         while modfamilia != "no" and modfamilia !="si":
             modfamilia = input("¿Quieres modificar la familia?(si/no)").lower()
             if modfamilia == "si": #si el usuario decide cambiar el id, llamamos a la funcion
                 idfamilia = asignarFamilia()
-       
+        print(idfamilia)
         #A partir de aqui, concatenamos los valores que queremos modificar
         if codigo != "":
             modif = modif + " codigoarticulo = "+codigo+","
