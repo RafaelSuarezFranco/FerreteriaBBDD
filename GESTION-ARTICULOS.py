@@ -126,17 +126,10 @@ def buscarFamiliaID(idfamilia):
         tabla.add_row(columna)
     print(tabla)    
 
-
-def altaArticulo():
-    #pedimos datos y validamos.
-    ######################################################################################### CODIGO
-    codigo = input("Introduce codigo de artículo (número entero)")
-    codigoduplicado = duplicado("articulo", "codigoarticulo",codigo)
-    while codigoduplicado == True or esEntero(codigo) == False:
-        codigo = input("Introduce codigo de artículo (número entero)")
-        codigoduplicado = duplicado("articulo", "codigoarticulo",codigo)  
-    codigo = int(codigo)
-    ######################################################################################### FAMILIA
+def asignarFamilia():
+    #dado que el proceso de asignar una familia a un artículo es algo complicado, mejor sacar el proceso en esta
+    #función y llamarla tanto en alta como en modificación de artículo
+    
     #en el caso que un ID de familia esté duplicado quiere decir que existe y que lo aceptamos.
     #si no esta duplicado, no existe y por tanto, damos la opcion de crear familia nueva.
     idfamilia = ""
@@ -150,7 +143,7 @@ def altaArticulo():
                 opcion = input("El id de familia que has introducido no existe. ¿Quieres crear una nueva familia? (si/no) ").lower()
             if opcion == "si": 
                 idfamilia = altaFamilia()
-                print("Al artículo que estás creando se le ha asignado la nueva familia.")
+                print("Al artículo que estás creando/modificando se le asignará la nueva familia una vez termines.")
                 break
             else:
                 print("Has respondido no. Entonces debes introducir un idfamilia que exista.")
@@ -165,6 +158,19 @@ def altaArticulo():
                 idfamilia = ""
                 
     idfamilia = int(idfamilia)
+    return idfamilia
+
+def altaArticulo():
+    #pedimos datos y validamos.
+    ######################################################################################### CODIGO Y FAMILIA
+    codigo = input("Introduce codigo de artículo (número entero)")
+    codigoduplicado = duplicado("articulo", "codigoarticulo",codigo)
+    while codigoduplicado == True or esEntero(codigo) == False:
+        codigo = input("Introduce codigo de artículo (número entero)")
+        codigoduplicado = duplicado("articulo", "codigoarticulo",codigo)  
+    codigo = int(codigo)
+
+    idfamilia = asignarFamilia()
     ######################################################################################### NOMBRE Y PRECIO
     nombre=""
     while len(nombre)<1 or len (nombre)>100:
@@ -257,14 +263,14 @@ def buscar():
             bufferid.append(columna[0]) #almacenamos los id provisionalmente
         if len(bufferid) > 0: #si se encuentra uno o varios articulos, entonces mostramos la tabla
             #muestra los articulos
-            print("Estos son los articulos que coninciden con su búsqueda")
+            print("Estos son los articulos que coinciden con su búsqueda")
             print(tabla)
-        elif len(bufferid) == 0: #si no se ha encontrado ningún cliente, mostramos solamente este mensaje
+        elif len(bufferid) == 0: #si no se ha encontrado ningún artículo, mostramos solamente este mensaje
             print("No se ha encontrado ningún articulo que coincida con los términos de búsqueda")
             
         return bufferid #lo devolvemos dado que queremos usar la funcion de buscar en baja y modificar
     except mysql.connector.Error:
-        print("No se puede encontrar articulo")
+        print("No se puede encontrar artículo")
 
 
 def modificar():
@@ -280,52 +286,44 @@ def modificar():
         print("Si quieres modificar un campo, introduce algo en ese campo. Si no quieres modificar un campo, pulsa intro sin introducir nada.")
         #pedimos datos y validamos
         #EN ESTE CASO PERMITIMOS NULL, SI SE DEJA UN CAMPO VACÍO, NO SE MODIFICA
-        nombre = input("Introduce nombre y apellido del cliente (0-100 caracteres)").lower()
-        while len (nombre)>100:
-            nombre = input("Introduce nombre y apellido del cliente (0-100 caracteres)").lower()
-    
-        direccion = input("Introduce dirección del cliente (0-100 caracteres)").lower()
-        while len (direccion)>100:
-            direccion = input("Introduce dirección del cliente (0-100 caracteres)").lower()
-    
-        dni = input("Introduce DNI o CIF del cliente (0-9 caracteres)").lower()
-        while len (dni)>9:
-            dni = input("Introduce DNI o CIF del cliente (0-9 caracteres)").lower()
-    
-        tipo = input("Introduce tipo de cliente (vip/empresa/publico) ").lower()
-        while tipo != "vip" and tipo != "empresa" and tipo != "publico" and tipo != "":
-            tipo = input("Introduce tipo de cliente (vip/empresa/publico) ").lower()
-    
-        #correo y validacion
-        correovalido = False
-        correo = ""
-        while correovalido == False:
-            #mientras que el correo sea inválido (@ entre letras) y mayor de 50 caracteres
-            correo = input("Introduce correo electrónico del cliente ej: xxx@xxx (opcional, 0-50 caracteres) ").lower()
-            correovalido = checkemail(correo)
-            if correo == "": #si es nulo, lo permitimos
-                correovalido = True
-    
-        #telf y validacion
-        telfvalido = False
-        telf = ""
-        while telfvalido == False: #en este caso he comprobado que sea nulo en la función
-            telf = input("Introduce teléfono del cliente (9 dígitos, empieza por 6/7/8/9) (opcional) ").lower()
-            telfvalido = checktelf(telf)
-        
-        #aqui damos la opcion de borrar correo, dado que si el usuario introduce "", no diferenciamos si
-        # lo que quieres es no modificarlo o borrarlo.
-        borrarcorreo =""
-        while borrarcorreo != "si" and borrarcorreo != "no":
-            borrarcorreo = input("¿Quieres borrar el correo?(si/no)(Si has introducido algo en correo y pulsas si, se borrará lo que has introducido)").lower()
-   
-        borrartelf =""
-        while borrartelf != "si" and borrartelf != "no":
-            borrartelf = input("¿Quieres borrar el teléfono?(si/no)(Si has introducido algo en teléfono y pulsas si, se borrará lo que has introducido)").lower()
+        codigo = "codigo"
+        codigoduplicado = duplicado("articulo", "codigoarticulo",codigo)
+        while codigoduplicado == True or esEntero(codigo) == False:
+            codigo = input("Introduce codigo de artículo (número entero)")
+            codigoduplicado = duplicado("articulo", "codigoarticulo",codigo)
+            if codigo != "" and esEntero(codigo) == True:
+                codigo = int(codigo)
+            elif codigo == "": # como permitimos nulo (para no modificar) salimos del bucle
+                break
             
+        
+        nombre = input("Introduce nombre del artículo (0-100 caracteres)").lower()
+        while len (nombre)>100:
+            nombre = input("Introduce nombre del artículo (0-100 caracteres)").lower()
+
+        precio = "precio"
+        while precio != "" and esFloat(precio) == False:
+            try:
+                precio = input("Introduce precio de artículo (número entero o con decimales)")
+                if precio == "":
+                    break
+                else:
+                    precio = float(precio)
+            except Exception:
+                precio = "precio"
+            
+        # para el tema de la familia prefiero preguntar si quiere o no, tal como tengo la función asignarFamilia() no
+        # me conviene pedir el dato aqui
+        idfamilia = ""
+        modfamilia = input("¿Quieres modificar la familia?(si/no)").lower()
+        while modfamilia != "no" and modfamilia !="si":
+            modfamilia = input("¿Quieres modificar la familia?(si/no)").lower()
+            if modfamilia == "si": #si el usuario decide cambiar el id, llamamos a la funcion
+                idfamilia = asignarFamilia()
+       
         #A partir de aqui, concatenamos los valores que queremos modificar
-        if nombre != "":
-            modif = modif + " nombrecliente = '"+nombre+"',"
+        if codigo != "":
+            modif = modif + " codigoarticulo = "+codigo+","
         if direccion != "":
             modif = modif + " direccioncliente = '"+direccion+"',"
         if dni != "":
@@ -390,7 +388,7 @@ def confirmar(borrarModificar):
         return ""
 
 
-def todos():
+def todosArticulos():
     tabla=PrettyTable(["ID","CODIGO","ID FAMILIA","NOMBRE","PRECIO","NOMBRE FAMILIA", "STOCK ACTUAL"])
     sql="""SELECT a.idarticulo, a.codigoarticulo, a.idfamilia, a.nombrearticulo, a.preciounidad,
     f.nombrefamilia, s.cantidadstock from articulo a, stock s, familia f
@@ -399,71 +397,6 @@ def todos():
     for columna in micursor:
         tabla.add_row(columna)
     print(tabla)
-    
-#listar por tipo o por nombre
-def listar():
-    
-    opcion = 0
-    letras = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
-    
-    while opcion != 1 and opcion != 2:
-        try:
-            opcion = int(input("Introduce 1 para listar por nombre, introduce 2 para listar por tipo."))
-        except ValueError:
-            opcion = 0
-    
-    if opcion == 1: #si elige listar por nombre
-        inicio = ""
-        posicioninicio = 0
-        validoi = False
-        while validoi == False: # comprobamos que meta una sola letra. Recordamos que todo lo guardamos en minusculas
-            inicio = input("Introduce la primera letra del intervalo de nombres que quieres buscar.").lower()
-            for letra in letras:
-                posicioninicio = posicioninicio + 1
-                if inicio == letra:
-                    validoi = True
-                    break
-       
-        fin = ""
-        posicionfin = 0
-        validof = False
-        while validof == False:
-            fin = input("Introduce la última letra del intervalo de nombres que quieres buscar.").lower()
-            for letra in letras:
-                posicionfin = posicionfin +1
-                if fin == letra:
-                    validof = True
-                    break
-        
-        sql = ""
-        #en el caso de que se meta un intervalo inverso (z-a) lo que hacemos es mostrar la lista a la inversa (cambiamos entre desc y asc)
-        if posicioninicio > posicionfin:
-            print("Has introducido el intervalo '"+inicio+" - "+fin+"', tu intervalo se calculará en sentido inverso")
-            sql = "select * from cliente where nombrecliente >= '{}' and nombrecliente <= '{}' order by nombrecliente desc".format(fin, inicio)         
-        
-        elif posicioninicio < posicionfin: 
-            sql = "select * from cliente where nombrecliente >= '{}' and nombrecliente <= '{}' order by nombrecliente asc".format(inicio, fin)         
-        
-        else: #en el caso de que meta la misma letra
-            sql = "select * from cliente where nombrecliente like '{}%' order by nombrecliente asc".format(inicio)
-
-        print("Estos son los clientes en el intervalo "+inicio+" - "+fin)
-        
-        
-    elif opcion == 2:#si elige listar por tipo
-        tipo = ""
-        while tipo != "vip" and tipo != "empresa" and tipo != "publico":
-            tipo = input("Introduce tipo de cliente para listar (vip/empresa/publico) ").lower()
-        sql = "select * from cliente where tipocliente = '"+tipo+"'"
-        print("Estos son los clientes en de tipo "+tipo)
-        
-        #mostramos la tabla con el select en cuestión
-    tabla=PrettyTable(["ID","NOMBRE","DIRECCION","IDENTIFICADOR (CIF/DNI)","TIPO CLIENTE","CORREO ELECTRONICO","TELÉFONO"])
-    micursor.execute(sql)
-    for columna in micursor:
-        tabla.add_row(columna)
-    print(tabla)
-        
    
  ########################################
     
@@ -477,9 +410,7 @@ def menuArticulo():
         print ("2. Baja artículo")
         print ("3. Buscar - Modificar artículo")
         print ("4. Mostrar todos los artículos")
-        print ("5.")
-        print ("6. Alta familia")
-        print ("7. Salir")
+        print ("5. Salir")
         print ("Elige una opción")
         
         #validacion para que solo se metan numeros enteros
@@ -502,15 +433,11 @@ def menuArticulo():
             print("Para buscar y modificar un artículo, introduce nombre o el código de artículo")
             modificar()
         elif opcion == 4:
-            todos()
+            todosArticulos()
         elif opcion == 5:
-            listar()
-        elif opcion == 6:
-            altaFamilia()
-        elif opcion == 7:
-            salir = True
+            salir = True         
         else:
-            print ("Introduce un numero entre 1 y 6")  
+            print ("Introduce un numero entre 1 y 5")  
     print ("Fin")
 
 
