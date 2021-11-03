@@ -1,6 +1,8 @@
 import mysql.connector
 from prettytable import PrettyTable
 from datetime import date
+import validaciones as val
+import moduloFamilia as fam
 
 miconexion = mysql.connector.connect(
   host="localhost",
@@ -12,168 +14,54 @@ micursor=miconexion.cursor()
 
 bufferid = []
 
-#FUNCIONES VALIDACIÓN
- #validacion para que solo se metan numeros enteros
-def esEntero(num):
-    try:
-        entero = int(num)
-        num = entero
-        return True
-    except ValueError:
-        return False
-    
-def esFloat(num):
-    try:
-        float1 = float(num)
-        num = float1
-        return True 
-    except ValueError:
-        return False
+"""
+En general las funciones son similares a las de clientes, con los cambios necesarios, aunque en este caso he decidido
+separarlas en varios archivos dado que la gestión de familias es bastante extensa.
 
-        
-#la validación es similar a la del identificador de cliente, en este caso
-#a la funcion le pasamos la tabla y el campo porque la utilizaremos para validar en artículo y familias
-def duplicado(tabla, campo, valor):
-    sql="select "+campo+" from "+tabla+" where "+campo+" = "+str(valor)
-    if campo == "nombrefamilia":
-        sql="select "+campo+" from "+tabla+" where "+campo+" = '"+str(valor)+"'"
-    encontrado = False
-    try:
-        micursor.execute(sql)
-        for columna in micursor:
-            if campo == "idfamilia":#me interesa que haya un mensaje u otro dependiendo de que estamos validando
-                print("El ID introducido existe.")
-            elif campo == "nombrefamilia":
-                print("El nombre de familia está duplicado. Introduce otro.")
-            else:
-                print("El valor introducido está duplicado. Por favor, introduce uno distinto.")
-            encontrado = True #si hemos encontrado algún registro
-        return encontrado
-        
-    except mysql.connector.Error:
-        return False
+En este archivo tenemos:
+- Alta: recoge datos y ejecuta un insert. Llama a la función asignarFamilia
+- Baja: Primero llama a la función confirmar que a su vez llama a buscar. Es decir, primero se hace una búsqueda de un artículo,
+luego se confirma o no si se quiere borrar, y finalmente se borra si la confirmación es positiva.
+- CopiaHistorico: es llamada en baja, antes de ejecutar los deletes. Recoge datos de la tabla histórico y los vuelca en la
+tabla de copia de histórico
+- Modificar: Procedimiento similar a la baja, solo que en su última etapa (se la confirmación es positiva) se piden datos
+y se ejecuta un update. Llama a asignarFamilia
+- Confirmar y buscar: necesarias para la baja o modificación de un artículo. Se busca uno o varios artículos y luego se confirma
+si se quiere borrar o modificar el artículo (o uno de los varios encontrados)
+- Todos: muestra todos los artículos. Útil para ver rápidamente los cambios efecutados en la tabla artículo.
+
+En el modulo de familia tenemos:
+-AsignarFamilia: pide un idfamilia, si existe, muestra su información llamando a buscarFamiliaID, si no, se ofrece la opción
+de crear una nueva familia, llamando a AltaFamilia. En cualquier caso, devolverá el idfamilia que se asigna al artículo, ya
+sea en su alta o modificación.
+-BuscarFamiliaID: muestra datos de familia con cierto ID
+-AltaFamilia: similar al alta de artículo, se le da la opción al usuario de elegir un idfamilia o dejar que se autogenere.
+
+En validaciones tenemos:
+-esEntero y esFloat: para validar que un dato sea entero o float.
+-duplicado: para comprobar si un dato que se introduce existe en la base de datos, a la hora de evitar IDs o códigos duplicados
+"""
+
 ########################################
-    
-#muestra la familia que estamos intentando asignar a un artículo
-def buscarFamiliaID(idfamilia):
-    tabla=PrettyTable(["ID FAMILIA","NOMBRE FAMILIA","DESCUENTO FAMILIA"])
-    sql="select * from familia where idfamilia = "+idfamilia
-    micursor.execute(sql)
-    for columna in micursor:
-        tabla.add_row(columna)
-    print(tabla)
-    
-def asignarFamilia():
-    #dado que el proceso de asignar una familia a un artículo es algo complicado, mejor sacar el proceso en esta
-    #función y llamarla tanto en alta como en modificación de artículo
-    
-    #en el caso que un ID de familia esté duplicado quiere decir que existe y que lo aceptamos.
-    #si no esta duplicado, no existe y por tanto, damos la opcion de crear familia nueva.
-    idfamilia = ""
-    idfamilianuevo = ""
-    while esEntero(idfamilia) == False and duplicado("familia","idfamilia",idfamilia) == False:
-        #el bucle termina cuando se demuestra que el ID es entero y existe (o si creamos una familia nueva)
-        idfamilia = input("Introduce idfamilia de artículo (número entero)")
-        if duplicado("familia","idfamilia",idfamilia) == False: #si el ID no existe
-            opcion = ""
-            while opcion != "si" and opcion != "no":
-                opcion = input("El id de familia que has introducido no existe. ¿Quieres crear una nueva familia? (si/no) ").lower()
-            if opcion == "si": 
-                idfamilia = altaFamilia()
-                print("Al artículo que estás creando/modificando se le asignará la nueva familia una vez termines.")
-                break
-            else:
-                print("Has respondido no. Entonces debes introducir un idfamilia que exista.")
-                idfamilia = ""
-        else: #si el ID existe, mostramos su info y pedimos confirmación
-            print("La familia que has introducido es la siguiente.")
-            buscarFamiliaID(idfamilia)
-            correcto = ""
-            while correcto != "si" and correcto != "no":
-                correcto = input("¿Es esa la familia a la que quieres asignar el artículo?(si/no)").lower()
-            if correcto == "no": #si no es esa la familia, iteramos el bucle
-                idfamilia = ""
-                
-    idfamilia = int(idfamilia)
-    return idfamilia
-
-
 #FUNCIONES DE MENU
 ########################################
-def altaFamilia():
-    ######################################################################################### ID FAMILIA
-    sql = ""
-    idfamilianuevo="id"
-    #no aceptamos un ID de familia si NO es entero o ya existe o si pulsa intro
-    while esEntero(idfamilianuevo) == False or duplicado("familia","idfamilia",idfamilianuevo) == True:
-        idfamilianuevo = input("Introduce idfamilia de la familia (número entero, pulsa intro para generar uno automático.) ")
-        if idfamilianuevo == "":# si pulsa intro, permitimos salir del bucle
-            break
-    if idfamilianuevo != "": #si no es id vacío, lo utilizaremos.
-        idfamilianuevo = int(idfamilianuevo)
-    
-    ######################################################################################### NOMBRE Y DESCUENTO
-    nombre = input("Introduce nombre de la familia (1-100 caracteres) ").lower()
-    while len(nombre)<1 or len (nombre)>100 or duplicado("familia","nombrefamilia",nombre) == True: #tampoco puede estar duplicado
-        nombre = input("Introduce nombre de la familia (1-100 caracteres) ").lower()
-    
-    descuento = "descuento"
-    while descuento != "" and esFloat(descuento) == False:
-        descuento = input("Introduce el descuento de la familia (entero o decimales, o pulsa intro si no tiene descuento) ")
-
-    if descuento == "":#solo podemos meter floats en el campo descuento, aunque se permite null también.
-        descuento = "null"
-    else:
-        descuento = float(descuento)
-    ######################################################################################### SQL E INSERT DE LA FAMILIA
-    if idfamilianuevo == "":#dependiendo de si el usuario quiere meter un id (no duplicado) o que se autogenere.
-        sql = "insert into familia (nombrefamilia, descuentofamilia) values ('{}',{})".format(nombre, descuento)
-    else:
-        sql = "insert into familia (idfamilia, nombrefamilia, descuentofamilia) values ({},'{}',{})".format(idfamilianuevo,nombre,descuento)
-    #cláusula insert
-    try:
-        micursor.execute(sql)
-        miconexion.commit()
-        print("Familia dada de alta con éxito.")
-    except mysql.connector.Error:
-        print("No se ha podido dar de alta la familia.")
-        
-    ######################################################################### RECUPERAR EL ID FAMILIA (PARA EL ALTA DE ARTICULO)
-        
-    #vamos a hacer que esta funcion devuelva el ID creado, para utilizarlo en crear articulo si esta función es llamada allí.
-    if idfamilianuevo != "":#si hemos introducido el ID manualmente, lo tenemos guardado en la variable
-        return idfamilianuevo
-    else:
-        try:#si se ha autogenerado, sacamos el ultimo de la lista. auto increment ignora que hayan números sin utilizar,
-            #siempre usará un número mayor al último que encuentre, por lo que este select nos arrojará el ID que buscamos.
-            busqueda = "SELECT idfamilia FROM familia ORDER BY idfamilia DESC LIMIT 1"
-            micursor.execute(busqueda)
-            #miconexion.commit()
-            for columna in micursor:
-                print("El ID de la familia que acabas de crear es "+str(columna[0]))
-                idfamilianuevo = columna[0]
-                return idfamilianuevo
-        except mysql.connector.Error:
-            print("ID no encontrado")
-            return 0
-
 
 def altaArticulo():
     #pedimos datos y validamos.
     ######################################################################################### CODIGO Y FAMILIA
     codigo = input("Introduce codigo de artículo (número entero)")
-    while duplicado("articulo", "codigoarticulo",codigo) == True or esEntero(codigo) == False:
+    while val.duplicado("articulo", "codigoarticulo",codigo) == True or val.esEntero(codigo) == False:
         codigo = input("Introduce codigo de artículo (número entero)") 
     codigo = int(codigo)
 
-    idfamilia = asignarFamilia()
+    idfamilia = fam.asignarFamilia()
     ######################################################################################### NOMBRE Y PRECIO
     nombre=""
     while len(nombre)<1 or len (nombre)>100:
         nombre = input("Introduce nombre de artículo (1-100 caracteres)").lower()
 
     precio = ""
-    while precio == "" or esFloat(precio) == False:
+    while precio == "" or val.esFloat(precio) == False:
         precio = input("Introduce precio de artículo (número entero o con decimales)")
     precio = float(precio)
     
@@ -202,15 +90,15 @@ def altaArticulo():
         print("No se ha podido dar de alta el stock del artículo.")
     ###################################################################### FIN ALTA ARTÍCULO 
    
-#antes de borrar el historio de stock, hay que volcarlo a la tabla de copia. le pasamos el id de artículo que vamos a borrar
+#antes de borrar el historico de stock, hay que volcarlo a la tabla de copia. le pasamos el id de artículo que vamos a borrar
 #debemos introducir los campos: idarticulo, codigoarticulo, idfamilia, nombrearticulo, cantidadhistoricostock, fechaeliminacion
 def copiaHistorico(borrarid):
     # RECOGIDA DE DATOS
     infoHist = []
     try:
-        recogesql = """select h.idarticulo, a.codigoarticulo, a.idfamilia, a.nombrearticulo, h.cantidadhistoricostock
+        recoge = """select h.idarticulo, a.codigoarticulo, a.idfamilia, a.nombrearticulo, h.cantidadhistoricostock
         from historicostock h, articulo a where a.idarticulo = h.idarticulo and h.idarticulo = """+str(borrarid)
-        micursor.execute(recogesql)
+        micursor.execute(recoge)
         for columna in micursor:
             infoHist.append(columna)
     except mysql.connector.Error:
@@ -255,52 +143,7 @@ def bajaArticulo(): #las tablas stock e historico stock tienen RESTRICT en sus c
             print("No se ha borrado el artículo.")
 
 
-
-#siempre que buscamos, damos la opción a modificar, por lo tanto desde el menu se llama a la función modificar(), que a su vez
-#llama a confirmar(), la cual llama a esta función de buscar. si en confirmar no confirmamos, la función modificar (o baja)
-#no hará ninguna acción, sino que será como una búsqueda normal.
-def buscar():
-    print("Elige buscar por nombre de artículo (opción 1) o por codigo de artículo (opción 2)")
-    op = ""
-    condicion = ""
-     
-    while op != "1" and op != "2":
-        op = input("Introduce una opción (1-2)")
-        
-    if op == "1":
-        nombre=""
-        while len(nombre)<1 or len (nombre)>100:
-            nombre = input("Introduce nombre de artículo del cliente (1-100 caracteres)")
-            condicion = "where nombrearticulo = '"+nombre+"'" #la consulta varía dependiendo de la opcion (nombre o codigo)
-    elif op == "2":    
-        codigo = ""
-        while esEntero(codigo) == False:
-            codigo = input("Introduce codigo de artículo (número entero)") 
-        codigo = int(codigo)
-        condicion = "where codigoarticulo = "+str(codigo)
-           
-    #cláusula select y creacion de tabla    
-    try:
-        tabla=PrettyTable(["ID","CODIGO","ID FAMILIA","NOMBRE","PRECIO"])
-        sql="select * from articulo "+condicion
-        micursor.execute(sql)
-        bufferid = []
-        for columna in micursor:
-            tabla.add_row(columna)
-            bufferid.append(columna[0]) #almacenamos los id provisionalmente
-        if len(bufferid) > 0: #si se encuentra uno o varios articulos, entonces mostramos la tabla
-            #muestra los articulos
-            print("Estos son los articulos que coinciden con su búsqueda")
-            print(tabla)
-        elif len(bufferid) == 0: #si no se ha encontrado ningún artículo, mostramos solamente este mensaje
-            print("No se ha encontrado ningún articulo que coincida con los términos de búsqueda")
-            
-        return bufferid #lo devolvemos dado que queremos usar la funcion de buscar en baja y modificar
-    except mysql.connector.Error:
-        print("No se puede encontrar artículo")
-
-
-def modificar():
+def modificarArticulo():
     modificarid = confirmar("modificar")
     #funciona de forma similar a baja(), le pasamos 'modificar' para que tenga los inputs tengan sentido.
     
@@ -315,9 +158,9 @@ def modificar():
         #EN ESTE CASO PERMITIMOS NULL, SI SE DEJA UN CAMPO VACÍO, NO SE MODIFICA
         ############################################################################################# PEDIR DATOS
         codigo = "codigo"
-        while duplicado("articulo", "codigoarticulo",codigo) == True or esEntero(codigo) == False:
+        while val.duplicado("articulo", "codigoarticulo",codigo) == True or val.esEntero(codigo) == False:
             codigo = input("Introduce codigo de artículo (número entero)")
-            if codigo != "" and esEntero(codigo) == True:
+            if codigo != "" and val.esEntero(codigo) == True:
                 codigo = int(codigo)
             elif codigo == "": # como permitimos nulo (para no modificar) salimos del bucle
                 break
@@ -327,7 +170,7 @@ def modificar():
             nombre = input("Introduce nombre del artículo (0-100 caracteres)").lower()
 
         precio = "precio"
-        while precio != "" and esFloat(precio) == False:
+        while precio != "" and val.esFloat(precio) == False:
             precio = input("Introduce precio de artículo (número entero o con decimales)")        
         if precio != "":
             precio = float(precio)
@@ -339,9 +182,8 @@ def modificar():
         while modfamilia != "no" and modfamilia !="si":
             modfamilia = input("¿Quieres modificar la familia?(si/no)").lower()
             if modfamilia == "si": #si el usuario decide cambiar el id, llamamos a la funcion
-                idfamilia = asignarFamilia()
-        print(idfamilia)
-        ############################################################################################# SENTENCIA SQL
+                idfamilia = fam.asignarFamilia()
+        ############################################################################################# SENTENCIA SQL E INSERT
         #A partir de aqui, concatenamos los valores que queremos modificar
         if codigo != "":
             modif = modif + " codigoarticulo = "+str(codigo)+","
@@ -353,11 +195,8 @@ def modificar():
             modif = modif + " idfamilia = "+str(idfamilia)+","
             
         modif = modif[:-1]
-        #esto nos permite borrar la ultima coma, que sobrará en la sentencia
-            
+        #esto nos permite borrar la ultima coma, que sobrará en la sentencia   
         sql="update articulo "+modif+" where idarticulo = "+str(modificarid)
-        #print(sql)
-        #cláusula update
         try:
             micursor.execute(sql)
             miconexion.commit()
@@ -366,9 +205,10 @@ def modificar():
             print("No se ha modificado el artículo.")
             # esta excepción saltará normalmente si no se ha metido ningún dato para modificar.
 
+
 def confirmar(borrarModificar):
-    #tanto en modificar como en baja, queremos pedir al usuario que confirme si quiere borrar/modificar el articulo
-    #además, si hay varios articulos que coinciden con el criterio de búsqueda, esta función permite seleccionar uno.
+    #tanto en modificar como en baja, queremos pedir al usuario que confirme si quiere borrar/modificar el artículo
+    #además, si hay varios artículos que coinciden con el criterio de búsqueda, esta función permite seleccionar uno.
     bufferid = buscar()
     borrarmodid = "" #este es el ID que se borrará o modificará
     confirmacion = ""
@@ -396,7 +236,50 @@ def confirmar(borrarModificar):
     else:
         return ""
 
+# en este programa, la búsqueda siempre se hace como paso previo a modificar o baja, por lo que esta función siempre cuenta
+# con la intermediación de confirmar(), en lugar de llamarla directamente desde el menú
+def buscar():
+    print("Elige buscar por nombre de artículo (opción 1) o por codigo de artículo (opción 2)")
+    op = ""
+    condicion = ""
+     
+    while op != "1" and op != "2":
+        op = input("Introduce una opción (1-2)")
+        
+    if op == "1":
+        nombre=""
+        while len(nombre)<1 or len (nombre)>100:
+            nombre = input("Introduce nombre de artículo del cliente (1-100 caracteres)")
+            condicion = "where nombrearticulo = '"+nombre+"'" #la consulta varía dependiendo de la opcion (nombre o codigo)
+    elif op == "2":    
+        codigo = ""
+        while val.esEntero(codigo) == False:
+            codigo = input("Introduce codigo de artículo (número entero)") 
+        codigo = int(codigo)
+        condicion = "where codigoarticulo = "+str(codigo)
+           
+    #cláusula select y creacion de tabla    
+    try:
+        tabla=PrettyTable(["ID","CODIGO","ID FAMILIA","NOMBRE","PRECIO"])
+        sql="select * from articulo "+condicion
+        micursor.execute(sql)
+        bufferid = []
+        for columna in micursor:
+            tabla.add_row(columna)
+            bufferid.append(columna[0]) #almacenamos los id provisionalmente
+        if len(bufferid) > 0: #si se encuentra uno o varios articulos, entonces mostramos la tabla
+            #muestra los articulos
+            print("Estos son los articulos que coinciden con su búsqueda")
+            print(tabla)
+        elif len(bufferid) == 0: #si no se ha encontrado ningún artículo, mostramos solamente este mensaje
+            print("No se ha encontrado ningún articulo que coincida con los términos de búsqueda")
+            
+        return bufferid #lo devolvemos dado que queremos usar la funcion de buscar en baja y modificar
+    except mysql.connector.Error:
+        print("No se puede encontrar artículo")
 
+
+#función para mostrar rápidamente los artículos disponibles. también muestra el nombre de su familia y su stock
 def todosArticulos():
     tabla=PrettyTable(["ID","CODIGO","ID FAMILIA","NOMBRE","PRECIO","NOMBRE FAMILIA", "STOCK ACTUAL"])
     sql="""SELECT a.idarticulo, a.codigoarticulo, a.idfamilia, a.nombrearticulo, a.preciounidad,
@@ -439,13 +322,11 @@ def menuArticulo():
             bajaArticulo()
         elif opcion == 3:
             print("Para buscar y modificar un artículo, introduce nombre o el código de artículo")
-            modificar()
+            modificarArticulo()
         elif opcion == 4:
             todosArticulos()
         elif opcion == 5:
             salir = True
-        elif opcion == 6:
-            altaFamilia()
         else:
             print ("Introduce un numero entre 1 y 5")  
     print ("Fin")
