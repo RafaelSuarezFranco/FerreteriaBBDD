@@ -19,9 +19,10 @@ En general las funciones son similares a las de clientes, con los cambios necesa
 separarlas en varios archivos dado que la gestión de familias es bastante extensa.
 
 En este archivo tenemos:
-- Alta: recoge datos y ejecuta un insert. Llama a la función asignarFamilia
+- Alta: recoge datos y ejecuta un insert (además de otro para la tabla stock). Llama a la función asignarFamilia
 - Baja: Primero llama a la función confirmar que a su vez llama a buscar. Es decir, primero se hace una búsqueda de un artículo,
-luego se confirma o no si se quiere borrar, y finalmente se borra si la confirmación es positiva.
+luego se confirma o no si se quiere borrar, y finalmente se borra si la confirmación es positiva. Se ejecutan deletes en artículo,
+stock e histórico stock.
 - CopiaHistorico: es llamada en baja, antes de ejecutar los deletes. Recoge datos de la tabla histórico y los vuelca en la
 tabla de copia de histórico
 - Modificar: Procedimiento similar a la baja, solo que en su última etapa (se la confirmación es positiva) se piden datos
@@ -49,7 +50,7 @@ En validaciones tenemos:
 def altaArticulo():
     #pedimos datos y validamos.
     ######################################################################################### CODIGO Y FAMILIA
-    codigo = input("Introduce codigo de artículo (número entero)")
+    codigo = ""
     while val.duplicado("articulo", "codigoarticulo",codigo) == True or val.esEntero(codigo) == False:
         codigo = input("Introduce codigo de artículo (número entero)") 
     codigo = int(codigo)
@@ -145,13 +146,12 @@ def bajaArticulo(): #las tablas stock e historico stock tienen RESTRICT en sus c
 
 def modificarArticulo():
     modificarid = confirmar("modificar")
-    #funciona de forma similar a baja(), le pasamos 'modificar' para que tenga los inputs tengan sentido.
+    #funciona de forma similar a baja(), le pasamos 'modificar' para que los mensajes de los inputs tengan sentido.
     
     sql = ""
+    modif = "set"
     #si el ID seleccionado es válido, es decir, si hemos confirmado que queremos modificar cierto ID, entonces pedimos datos
     # para modificar el registro.
-    modif = "set"
-    
     if modificarid != "":
         print("Si quieres modificar un campo, introduce algo en ese campo. Si no quieres modificar un campo, pulsa intro sin introducir nada.")
         #pedimos datos y validamos
@@ -176,10 +176,10 @@ def modificarArticulo():
             precio = float(precio)
             
         # para el tema de la familia prefiero preguntar si quiere o no, tal como tengo la función asignarFamilia() no
-        # me conviene pedir el dato aqui
+        # me conviene pedir el dato aqui, porque luego se pide también en esa función.
         idfamilia = ""
         modfamilia = ""
-        while modfamilia != "no" and modfamilia !="si":
+        while modfamilia != "no" and modfamilia != "si":
             modfamilia = input("¿Quieres modificar la familia?(si/no)").lower()
             if modfamilia == "si": #si el usuario decide cambiar el id, llamamos a la funcion
                 idfamilia = fam.asignarFamilia()
@@ -215,8 +215,8 @@ def confirmar(borrarModificar):
     
     if len(bufferid) == 1:#en el caso de que solo se haya encontrado un articulo
         while confirmacion != "no" and confirmacion != "si":
-            confirmacion = input("¿Está seguro de que quiere "+borrarModificar+" el articulo? (si/no)").lower()
-            borrarmodid = bufferid[0] #sabemos que si solo hay uno, borramos el único ID del array, en la posicion 0
+            confirmacion = input("¿Está seguro de que quiere "+borrarModificar+" el artículo? (si/no)").lower()
+            borrarmodid = bufferid[0] #sabemos que si solo hay uno, borramos/modificamos el único ID del array, en la posicion 0
             
     elif len(bufferid) > 1:#en caso de que encontremos más de uno
         idseleccion = ""
@@ -227,8 +227,8 @@ def confirmar(borrarModificar):
             idseleccion = ""
         
         for i in bufferid:
-            if i == idseleccion: #si ha metido un id válido (dentro del buffer de IDs) entonces se lo asignamos a borrarid
-                confirmacion = "si" #entendemos que si hemos metido un ID válido, estamos confirmando su modificacion/borrado
+            if i == idseleccion: #si ha metido un id válido (dentro del buffer de IDs) entonces se lo asignamos a borrarmodid
+                confirmacion = "si" #entendemos que si hemos metido un ID válido, estamos confirmando su modificación/borrado
                 borrarmodid = idseleccion
     #esta funcion devuelve el ID que vamos a borrar o modificar, si no se confirma un ID a borrar/modificar, esta función devolverá ""
     if confirmacion == "si":
@@ -249,7 +249,7 @@ def buscar():
     if op == "1":
         nombre=""
         while len(nombre)<1 or len (nombre)>100:
-            nombre = input("Introduce nombre de artículo del cliente (1-100 caracteres)")
+            nombre = input("Introduce nombre de artículo (1-100 caracteres)")
             condicion = "where nombrearticulo = '"+nombre+"'" #la consulta varía dependiendo de la opcion (nombre o codigo)
     elif op == "2":    
         codigo = ""
@@ -269,10 +269,10 @@ def buscar():
             bufferid.append(columna[0]) #almacenamos los id provisionalmente
         if len(bufferid) > 0: #si se encuentra uno o varios articulos, entonces mostramos la tabla
             #muestra los articulos
-            print("Estos son los articulos que coinciden con su búsqueda")
+            print("Estos son los artículos que coinciden con su búsqueda")
             print(tabla)
         elif len(bufferid) == 0: #si no se ha encontrado ningún artículo, mostramos solamente este mensaje
-            print("No se ha encontrado ningún articulo que coincida con los términos de búsqueda")
+            print("No se ha encontrado ningún artículo que coincida con los términos de búsqueda")
             
         return bufferid #lo devolvemos dado que queremos usar la funcion de buscar en baja y modificar
     except mysql.connector.Error:
@@ -307,9 +307,7 @@ def menuArticulo():
         
         #validacion para que solo se metan numeros enteros
         try:
-            opcion = input("")
-            entero = int(opcion)
-            opcion = entero 
+            opcion = int(input(""))
         except ValueError:
             print("Introduce un número entero, por favor.")
             opcion = 7 #si no se mete un entero, ponemos una opción inválida para que se itere de nuevo el menú
@@ -328,7 +326,7 @@ def menuArticulo():
         elif opcion == 5:
             salir = True
         else:
-            print ("Introduce un numero entre 1 y 5")  
-    print ("Fin")
+            print ("Las opciones disponibles van de 1 a 5")  
+    print ("Fin de la gestión de artículos.")
 
 menuArticulo()

@@ -26,7 +26,6 @@ def asignarFamilia():
     #en el caso que un ID de familia esté duplicado quiere decir que existe y que lo aceptamos.
     #si no esta duplicado, no existe y por tanto, damos la opcion de crear familia nueva.
     idfamilia = ""
-    idfamilianuevo = ""
     while val.esEntero(idfamilia) == False and val.duplicado("familia","idfamilia",idfamilia) == False:
         #el bucle termina cuando se demuestra que el ID es entero y existe (o si creamos una familia nueva)
         idfamilia = input("Introduce idfamilia de artículo (número entero)")
@@ -93,9 +92,10 @@ def altaFamilia():
     except mysql.connector.Error:
         print("No se ha podido dar de alta la familia.")
         
-    #################################################################### RECUPERAR EL ID FAMILIA (PARA EL ALTA DE ARTICULO)
+    ######################################################## RECUPERAR EL ID FAMILIA (PARA EL ALTA/MODIFICACION DE ARTICULO)
         
-    #vamos a hacer que esta funcion devuelva el ID creado para utilizarlo en crear articulo, dado que esta funcion es llamada allí.
+    #vamos a hacer que esta funcion devuelva el ID creado para utilizarlo en crear o modificar artículo,
+    #dado que esta función es llamada allí (a través de asignarFamilia)
     if idfamilianuevo != "":#si hemos introducido el ID manualmente, lo tenemos guardado en la variable
         return idfamilianuevo
     else:
