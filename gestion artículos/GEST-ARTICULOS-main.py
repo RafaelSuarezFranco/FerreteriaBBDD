@@ -26,7 +26,8 @@ stock e histórico stock.
 - CopiaHistorico: es llamada en baja, antes de ejecutar los deletes. Recoge datos de la tabla histórico y los vuelca en la
 tabla de copia de histórico
 - Modificar: Procedimiento similar a la baja, solo que en su última etapa (se la confirmación es positiva) se piden datos
-y se ejecuta un update. Llama a asignarFamilia
+y se ejecuta un update. Llama a asignarFamilia y finalmente a ejecutarMod
+- EjecutarMod: ejecuta un update para modificar el artículo
 - Confirmar y buscar: necesarias para la baja o modificación de un artículo. Se busca uno o varios artículos y luego se confirma
 si se quiere borrar o modificar el artículo (o uno de los varios encontrados)
 - Todos: muestra todos los artículos. Útil para ver rápidamente los cambios efecutados en la tabla artículo.
@@ -148,8 +149,6 @@ def modificarArticulo():
     modificarid = confirmar("modificar")
     #funciona de forma similar a baja(), le pasamos 'modificar' para que los mensajes de los inputs tengan sentido.
     
-    sql = ""
-    modif = "set"
     #si el ID seleccionado es válido, es decir, si hemos confirmado que queremos modificar cierto ID, entonces pedimos datos
     # para modificar el registro.
     if modificarid != "":
@@ -183,28 +182,34 @@ def modificarArticulo():
             modfamilia = input("¿Quieres modificar la familia?(si/no)").lower()
             if modfamilia == "si": #si el usuario decide cambiar el id, llamamos a la funcion
                 idfamilia = fam.asignarFamilia()
-        ############################################################################################# SENTENCIA SQL E INSERT
-        #A partir de aqui, concatenamos los valores que queremos modificar
-        if codigo != "":
-            modif = modif + " codigoarticulo = "+str(codigo)+","
-        if nombre != "":
-            modif = modif + " nombrearticulo = '"+nombre+"',"
-        if precio != "":
-            modif = modif + " preciounidad = "+str(precio)+","
-        if idfamilia != "":
-            modif = modif + " idfamilia = "+str(idfamilia)+","
-            
-        modif = modif[:-1]
-        #esto nos permite borrar la ultima coma, que sobrará en la sentencia   
-        sql="update articulo "+modif+" where idarticulo = "+str(modificarid)
-        try:
-            micursor.execute(sql)
-            miconexion.commit()
-            print("Artículo modificado con éxito.")
-        except mysql.connector.Error:
-            print("No se ha modificado el artículo.")
-            # esta excepción saltará normalmente si no se ha metido ningún dato para modificar.
+        #ejecuta un update con los parámetros que hemos recogido, además del ID a modificar
+        ejecutarMod(codigo, nombre, precio, idfamilia, modificarid)
 
+# para que la funcion modificar no sea muy extensa, el update lo ejecuto en otra función
+def ejecutarMod(codigo, nombre, precio, idfamilia, modificarid):
+    sql = ""
+    modif = "set"
+    ############################################################################################# SENTENCIA SQL E INSERT
+    #A partir de aqui, concatenamos los valores que queremos modificar
+    if codigo != "":
+        modif = modif + " codigoarticulo = "+str(codigo)+","
+    if nombre != "":
+        modif = modif + " nombrearticulo = '"+nombre+"',"
+    if precio != "":
+        modif = modif + " preciounidad = "+str(precio)+","
+    if idfamilia != "":
+        modif = modif + " idfamilia = "+str(idfamilia)+","
+            
+    modif = modif[:-1]
+    #esto nos permite borrar la ultima coma, que sobrará en la sentencia   
+    sql="update articulo "+modif+" where idarticulo = "+str(modificarid)
+    try:
+        micursor.execute(sql)
+        miconexion.commit()
+        print("Artículo modificado con éxito.")
+    except mysql.connector.Error:
+        print("No se ha modificado el artículo.")
+        # esta excepción saltará normalmente si no se ha metido ningún dato para modificar.
 
 def confirmar(borrarModificar):
     #tanto en modificar como en baja, queremos pedir al usuario que confirme si quiere borrar/modificar el artículo
